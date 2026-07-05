@@ -24,7 +24,7 @@ OHLCV_RETRIES = int(os.getenv("OHLCV_RETRIES", "3"))
 OHLCV_RETRY_DELAY = float(os.getenv("OHLCV_RETRY_DELAY", "1.0"))
 MAX_CONCURRENT = int(os.getenv("MAX_CONCURRENT", "5"))
 EMA_PERIOD = int(os.getenv("EMA_PERIOD", "10"))
-SMA_PERIOD = int(os.getenv("SMA_PERIOD", "200"))
+BYBIT_API_BASE = os.getenv("BYBIT_API_BASE", "https://api.bybit.com")
 
 
 def normalize_timeframe(raw: str) -> str:
@@ -130,7 +130,7 @@ def make_plot(df, symbol, signal, signal_idx=None):
 
 async def get_ohlcv(session, symbol):
     """Получает OHLCV-данные по символу."""
-    url = f"https://api.bytick.com/v5/market/kline?category={CATEGORY}&symbol={symbol}&interval={TIMEFRAME}&limit={KLINE_LIMIT}"
+    url = f"{BYBIT_API_BASE}/v5/market/kline?category={CATEGORY}&symbol={symbol}&interval={TIMEFRAME}&limit={KLINE_LIMIT}"
     for attempt in range(OHLCV_RETRIES):
         try:
             async with session.get(url) as resp:
@@ -268,7 +268,7 @@ async def process_symbol(session, symbol):
 
 async def get_all_symbols(session):
     """Получает список всех торговых пар с Bybit."""
-    url = f"https://api.bytick.com/v5/market/tickers?category={CATEGORY}"
+    url = f"{BYBIT_API_BASE}/v5/market/tickers?category={CATEGORY}"
     try:
         async with session.get(url) as resp:
             data = await resp.json()
@@ -299,6 +299,8 @@ async def main():
     async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
         symbols = await get_all_symbols(session)
         print(f"Найдено {len(symbols)} пар")
+        if not symbols:
+            raise RuntimeError("Список пар пуст — проверь доступ к Bybit API")
         await asyncio.gather(
             *(process_symbol(session, s) for s in symbols),
             return_exceptions=True,
